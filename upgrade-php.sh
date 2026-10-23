@@ -64,18 +64,37 @@ echo "--------------------------------------------------"
 # ==========================================
 # 1. PROMPT VERSI PHP TARGET
 # ==========================================
-read -rp "Masukkan versi PHP target (contoh: 8.3, 8.4): " TARGET_INPUT
+TARGET_INPUT=""
+if [ -n "${1:-}" ] && [[ "$1" =~ ^[0-9]+\.[0-9]+ ]]; then
+  TARGET_INPUT="$1"
+elif [ -n "${2:-}" ] && [[ "$2" =~ ^[0-9]+\.[0-9]+ ]]; then
+  TARGET_INPUT="$2"
+elif [ -n "${TARGET_PHP_VERSION:-}" ]; then
+  TARGET_INPUT="${TARGET_PHP_VERSION}"
+fi
 
 if [ -z "$TARGET_INPUT" ]; then
-  echo "[-] Versi target tidak boleh kosong!"
+  read -rp "Masukkan versi PHP target (contoh: 8.3, 8.4, 8.5): " TARGET_INPUT
+fi
+
+if [ -z "$TARGET_INPUT" ]; then
+  echo "[-] Versi target tidak boleh kosong! Proses dibatalkan."
   exit 1
 fi
 
 TARGET_FAMILY=$(echo "$TARGET_INPUT" | awk -F. '{print $1"."$2}')
 
-if [ "$TARGET_FAMILY" = "$SOURCE_PHP_VER" ]; then
-  echo "[-] Versi target (${TARGET_FAMILY}) sama dengan versi saat ini (${SOURCE_PHP_VER}). Upgrade dibatalkan."
-  exit 1
+SYSTEM_ACTIVE_PHP=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || echo "")
+ALREADY_UPGRADED=false
+
+if [ "$TARGET_FAMILY" = "$SYSTEM_ACTIVE_PHP" ]; then
+  echo "[i] PHP ${TARGET_FAMILY} sudah aktif sebagai runtime sistem saat ini."
+  echo "[+] Mode pelengkapan: Memeriksa kelengkapan modul dan menyelaraskan layanan..."
+  ALREADY_UPGRADED=true
+elif [ "$TARGET_FAMILY" = "$SOURCE_PHP_VER" ]; then
+  echo "[i] Versi target (${TARGET_FAMILY}) sama dengan versi backup awal (${SOURCE_PHP_VER})."
+  echo "[+] Menjalankan pemeriksaan kelengkapan modul dan konfigurasi..."
+  ALREADY_UPGRADED=true
 fi
 
 echo "[+] Target Versi PHP Mayor.Minor : php${TARGET_FAMILY}"
@@ -111,7 +130,7 @@ apt-get update -y
 # ==========================================
 # 3. INSTALASI PAKET INTI PHP
 # ==========================================
-echo "[+] Memasang paket inti php${TARGET_FAMILY}..."
+echo "[+] Memeriksa paket inti php${TARGET_FAMILY}..."
 CORE_PACKAGES=(
   "php${TARGET_FAMILY}-cli"
   "php${TARGET_FAMILY}-common"
@@ -128,7 +147,19 @@ if [ "${HAS_APACHE:-false}" = true ] && [ "${APACHE_MODE:-none}" = "mod_php" ]; 
   CORE_PACKAGES+=("libapache2-mod-php${TARGET_FAMILY}")
 fi
 
-apt-get install -y --no-install-recommends "${CORE_PACKAGES[@]}"
+MISSING_CORE_PACKAGES=()
+for core_pkg in "${CORE_PACKAGES[@]}"; do
+  if ! dpkg -s "$core_pkg" >/dev/null 2>&1; then
+    MISSING_CORE_PACKAGES+=("$core_pkg")
+  fi
+done
+
+if [ ${#MISSING_CORE_PACKAGES[@]} -gt 0 ]; then
+  echo "[+] Memasang paket inti yang belum terpasang: ${MISSING_CORE_PACKAGES[*]}"
+  apt-get install -y --no-install-recommends "${MISSING_CORE_PACKAGES[@]}"
+else
+  echo "    - Seluruh paket inti php${TARGET_FAMILY} telah terpasang."
+fi
 
 # ==========================================
 # 4. SINKRONISASI & INSTALASI EKSTENSI LENGKAP
@@ -206,14 +237,24 @@ for def in "${CORE_DEFAULTS[@]}"; do
   fi
 done
 
-if [ ${#PACKAGES_TO_INSTALL[@]} -gt 0 ]; then
-  echo "[+] Memasang ekstensi: ${PACKAGES_TO_INSTALL[*]}"
-  if ! apt-get install -y "${PACKAGES_TO_INSTALL[@]}"; then
+# Saring hanya modul/ekstensi yang belum terpasang di sistem
+MISSING_EXTENSIONS=()
+for ext_pkg in "${PACKAGES_TO_INSTALL[@]}"; do
+  if ! dpkg -s "$ext_pkg" >/dev/null 2>&1; then
+    MISSING_EXTENSIONS+=("$ext_pkg")
+  fi
+done
+
+if [ ${#MISSING_EXTENSIONS[@]} -gt 0 ]; then
+  echo "[+] Memasang modul/ekstensi yang belum terpasang: ${MISSING_EXTENSIONS[*]}"
+  if ! apt-get install -y "${MISSING_EXTENSIONS[@]}"; then
     echo "[!] Sebagian paket ekstensi mengalami kendala instalasi massal, memasang modul valid satu per satu..."
-    for pkg in "${PACKAGES_TO_INSTALL[@]}"; do
+    for pkg in "${MISSING_EXTENSIONS[@]}"; do
       apt-get install -y "$pkg" || echo "[-] Gagal memasang $pkg (dilewati)"
     done
   fi
+else
+  echo "    - Seluruh modul/ekstensi (${#PACKAGES_TO_INSTALL[@]} modul) telah lengkap terpasang di sistem."
 fi
 
 # ==========================================
@@ -487,7 +528,11 @@ UPGRADED_PHP_VER="${TARGET_FAMILY}"
 EOF
 
 echo "=================================================="
-echo "[✓] UPGRADE KE PHP ${TARGET_FAMILY} BERHASIL SELESAI!"
+if [ "$ALREADY_UPGRADED" = true ]; then
+  echo "[✓] PHP ${TARGET_FAMILY} ini telah berhasil terpasang dan seluruh konfigurasi telah lengkap!"
+else
+  echo "[✓] UPGRADE KE PHP ${TARGET_FAMILY} BERHASIL SELESAI!"
+fi
 echo "=================================================="
 php -v
 echo "--------------------------------------------------"

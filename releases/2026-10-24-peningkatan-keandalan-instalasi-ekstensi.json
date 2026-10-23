@@ -1,18 +1,28 @@
 {
   "date": "2026-10-24",
-  "type": "improvement",
+  "type": "feature",
   "project": {
     "name": "Skript Upgrade Php Tools"
   },
   "title": {
-    "id": "Otomasi Penyelarasan Web Server, Layanan PHP, dan Keandalan Modul",
-    "en": "Automated Web Server Synchronization, PHP Service Management, and Module Reliability"
+    "id": "Otomasi Instan Sekali Jalan, Penyelarasan Web Server, dan Pelengkapan Cerdas PHP",
+    "en": "All-in-One Instant Automation, Web Server Synchronization, and Smart PHP Completion"
   },
   "body": {
-    "id": "Memperluas otomasi peningkatan sistem dengan pembaruan mandiri konfigurasi web server dan rujukan socket, validasi sintaks terintegrasi, restart layanan otomatis, penghentian service lama secara efisien, serta validasi ketersediaan modul.",
-    "en": "Expanded system upgrade automation with autonomous web server configuration and socket reference updates, integrated syntax validation, automatic service restarts, efficient legacy service termination, and module availability validation."
+    "id": "Menghadirkan skrip instan satu langkah yang menggabungkan pencadangan dan pembaruan sistem secara berurutan, dilengkapi mode pelengkapan cerdas yang otomatis melengkapi komponen yang kurang jika sistem telah terpasang, serta restart layanan otomatis.",
+    "en": "Introducing a one-step instant runner combining backup and upgrade workflows sequentially, featuring intelligent completion mode to fill in any missing components on existing installations, and automatic service restarts."
   },
   "items": [
+    {
+      "type": "new",
+      "id": "Alat otomasi instan satu langkah untuk mencadangkan dan memperbarui runtime server sekaligus secara berurutan tanpa jeda manual.",
+      "en": "One-step instant automation tool to back up and upgrade server runtimes sequentially without manual interruption."
+    },
+    {
+      "type": "improvement",
+      "id": "Mode pelengkapan cerdas yang hanya memasang modul yang belum ada serta menyegarkan layanan jika versi target sudah terpasang di sistem.",
+      "en": "Intelligent completion mode that installs only missing modules and refreshes services if the target version is already present on the system."
+    },
     {
       "type": "fix",
       "id": "Penanganan cerdas untuk modul bawaan inti sistem sehingga tidak memicu kendala paket virtual saat pembaruan.",
