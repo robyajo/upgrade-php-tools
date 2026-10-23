@@ -9,14 +9,19 @@
     "en": "All-in-One Instant Automation, Web Server Synchronization, and Smart PHP Completion"
   },
   "body": {
-    "id": "Menghadirkan skrip instan satu langkah yang menggabungkan pencadangan dan pembaruan sistem secara berurutan, dilengkapi mode pelengkapan cerdas yang otomatis melengkapi komponen yang kurang jika sistem telah terpasang, serta restart layanan otomatis.",
-    "en": "Introducing a one-step instant runner combining backup and upgrade workflows sequentially, featuring intelligent completion mode to fill in any missing components on existing installations, and automatic service restarts."
+    "id": "Menghadirkan skrip instan satu langkah yang menggabungkan pencadangan dan pembaruan sistem secara berurutan, dilengkapi mode pelengkapan cerdas yang otomatis melengkapi komponen yang kurang jika sistem telah terpasang, restart layanan otomatis, serta dukungan penuh untuk runtime lawas generasi 5.x dan 7.x.",
+    "en": "Introducing a one-step instant runner combining backup and upgrade workflows sequentially, featuring intelligent completion mode to fill in any missing components on existing installations, automatic service restarts, and comprehensive support for legacy 5.x and 7.x runtimes."
   },
   "items": [
     {
       "type": "new",
       "id": "Alat otomasi instan satu langkah untuk mencadangkan dan memperbarui runtime server sekaligus secara berurutan tanpa jeda manual.",
       "en": "One-step instant automation tool to back up and upgrade server runtimes sequentially without manual interruption."
+    },
+    {
+      "type": "improvement",
+      "id": "Dukungan penuh untuk deteksi, pencadangan, dan pembaruan dari runtime lawas generasi 5.x dan 7.x menuju versi modern.",
+      "en": "Full support for detecting, backing up, and upgrading legacy 5.x and 7.x runtimes to modern releases."
     },
     {
       "type": "improvement",
