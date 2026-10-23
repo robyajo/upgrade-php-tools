@@ -18,6 +18,8 @@ latest
 # Berkas environment & metadata lokal
 *.env
 !.env.example
+.ACTIVITY_PROJECT_KEYS
+**/.ACTIVITY_PROJECT_KEYS
 
 # File sementara & sistem operasi
 .DS_Store

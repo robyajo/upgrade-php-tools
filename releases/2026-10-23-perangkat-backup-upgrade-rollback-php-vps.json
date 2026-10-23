@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-23",
+  "type": "feature",
+  "project": {
+    "name": "Skript Upgrade Php Tools"
+  },
+  "title": {
+    "id": "Perangkat Pencadangan, Pembaruan, dan Pemulihan PHP Server",
+    "en": "Server PHP Backup, Upgrade, and Instant Recovery Tools"
+  },
+  "body": {
+    "id": "Menghadirkan rangkaian alat otomasi untuk mencadangkan konfigurasi web server dan runtime secara aman ke folder lokal terisolasi, memperbarui sistem secara mulus, serta menyediakan fitur pemulihan instan jika terjadi kendala.",
+    "en": "Introducing an automated suite of tools to safely back up web server and runtime configurations into an isolated local folder, perform seamless upgrades, and offer instant recovery capabilities if issues arise."
+  },
+  "items": [
+    {
+      "type": "new",
+      "id": "Pencadangan otomatis konfigurasi server web dan runtime ke folder lokal project yang terisolasi.",
+      "en": "Automated backup of web server and runtime configurations into an isolated local project directory."
+    },
+    {
+      "type": "new",
+      "id": "Pembaruan otomatis runtime server yang aman dan kompatibel dengan multi-layanan web.",
+      "en": "Safe automated server runtime upgrade compatible with multi-web service environments."
+    },
+    {
+      "type": "new",
+      "id": "Fitur pemulihan instan satu langkah untuk mengembalikan konfigurasi server ke kondisi semula saat dibutuhkan.",
+      "en": "One-step instant recovery feature to revert server configurations to their previous state whenever needed."
+    },
+    {
+      "type": "improvement",
+      "id": "Penyajian berkas ringkasan audit sistem dalam format teks yang rapi dan mudah diinspeksi.",
+      "en": "Organized system audit summaries in structured text formats for easy inspection."
+    }
+  ]
+}
