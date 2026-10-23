@@ -39,7 +39,7 @@ ADDITIONAL_INI_FILES=$(php -r 'echo php_ini_scanned_files() ?: "";')
 EXTENSION_DIR=$(php -r 'echo ini_get("extension_dir") ?: "";')
 
 if [ -n "$LOADED_INI" ]; then
-  PHP_CONF_BASE=$(echo "$LOADED_INI" | sed -E 's|/(cli|fpm|apache2|cgi)?/php\.ini$||')
+  PHP_CONF_BASE=$(echo "$LOADED_INI" | sed -E 's#/(cli/|fpm/|apache2/|cgi/)?php\.ini$##')
   [ -z "$PHP_CONF_BASE" ] && PHP_CONF_BASE=$(dirname "$LOADED_INI")
 else
   PHP_CONF_BASE="/etc/php/${CURRENT_PHP_VER}"

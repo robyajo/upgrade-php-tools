@@ -32,6 +32,11 @@
       "type": "improvement",
       "id": "Penyajian berkas ringkasan audit sistem dalam format teks yang rapi dan mudah diinspeksi.",
       "en": "Organized system audit summaries in structured text formats for easy inspection."
+    },
+    {
+      "type": "fix",
+      "id": "Perbaikan kendala pemrosesan berkas saat inisialisasi pencadangan agar berjalan lancar tanpa hambatan.",
+      "en": "Fixed an issue during backup initialization file parsing to ensure smooth and uninterrupted operation."
     }
   ]
 }
