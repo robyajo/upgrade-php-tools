@@ -81,13 +81,17 @@ if command -v apache2 >/dev/null 2>&1 || command -v httpd >/dev/null 2>&1 || [ -
   HAS_APACHE=true
 fi
 
-# Deteksi PHP-FPM
-if systemctl is-active --quiet "php${CURRENT_PHP_VER}-fpm" 2>/dev/null || [ -d "/etc/php/${CURRENT_PHP_VER}/fpm" ]; then
+# Deteksi PHP-FPM (mendukung PHP 5.x, 7.x, 8.x)
+if systemctl is-active --quiet "php${CURRENT_PHP_VER}-fpm" 2>/dev/null || [ -d "/etc/php/${CURRENT_PHP_VER}/fpm" ] || systemctl is-active --quiet "php5-fpm" 2>/dev/null || [ -d "/etc/php5/fpm" ]; then
   HAS_FPM=true
   if [ -S "/run/php/php${CURRENT_PHP_VER}-fpm.sock" ]; then
     FPM_SOCKET_PATH="/run/php/php${CURRENT_PHP_VER}-fpm.sock"
   elif [ -S "/var/run/php/php${CURRENT_PHP_VER}-fpm.sock" ]; then
     FPM_SOCKET_PATH="/var/run/php/php${CURRENT_PHP_VER}-fpm.sock"
+  elif [ -S "/var/run/php5-fpm.sock" ]; then
+    FPM_SOCKET_PATH="/var/run/php5-fpm.sock"
+  elif [ -S "/run/php5-fpm.sock" ]; then
+    FPM_SOCKET_PATH="/run/php5-fpm.sock"
   fi
 fi
 
@@ -96,7 +100,7 @@ if [ "$HAS_APACHE" = true ]; then
   if [ -d "/etc/apache2/mods-enabled" ]; then
     if ls /etc/apache2/mods-enabled/php*.load >/dev/null 2>&1; then
       APACHE_MODE="mod_php"
-    elif [ -f "/etc/apache2/mods-enabled/proxy_fcgi.load" ] || ls /etc/apache2/conf-enabled/php*-fpm.conf >/dev/null 2>&1; then
+    elif [ -f "/etc/apache2/mods-enabled/proxy_fcgi.load" ] || ls /etc/apache2/conf-enabled/php*-fpm.conf >/dev/null 2>&1 || [ -f "/etc/apache2/conf-enabled/php5-fpm.conf" ]; then
       APACHE_MODE="fpm_proxy"
     else
       APACHE_MODE="custom_or_fpm"
@@ -120,6 +124,7 @@ fi
 mkdir -p "${BACKUP_DIR}/loaded_ini"
 
 CLI_INI="/etc/php/${CURRENT_PHP_VER}/cli/php.ini"
+[ ! -f "$CLI_INI" ] && [ -f "/etc/php5/cli/php.ini" ] && CLI_INI="/etc/php5/cli/php.ini"
 [ ! -f "$CLI_INI" ] && [ -n "$LOADED_INI" ] && CLI_INI="$LOADED_INI"
 if [ -f "$CLI_INI" ]; then
   cp -a "$CLI_INI" "${BACKUP_DIR}/loaded_ini/cli_php.ini"
@@ -127,22 +132,26 @@ if [ -f "$CLI_INI" ]; then
 fi
 
 FPM_INI="/etc/php/${CURRENT_PHP_VER}/fpm/php.ini"
+[ ! -f "$FPM_INI" ] && [ -f "/etc/php5/fpm/php.ini" ] && FPM_INI="/etc/php5/fpm/php.ini"
 if [ -f "$FPM_INI" ]; then
   cp -a "$FPM_INI" "${BACKUP_DIR}/loaded_ini/fpm_php.ini"
   echo "    - File FPM php.ini berhasil dicadangkan."
 fi
 
 APACHE_INI="/etc/php/${CURRENT_PHP_VER}/apache2/php.ini"
+[ ! -f "$APACHE_INI" ] && [ -f "/etc/php5/apache2/php.ini" ] && APACHE_INI="/etc/php5/apache2/php.ini"
 if [ -f "$APACHE_INI" ]; then
   cp -a "$APACHE_INI" "${BACKUP_DIR}/loaded_ini/apache2_php.ini"
   echo "    - File Apache2 php.ini berhasil dicadangkan."
 fi
 
 # 3.3 Backup pool konfigurasi FPM (pool.d)
-if [ -d "/etc/php/${CURRENT_PHP_VER}/fpm/pool.d" ]; then
+FPM_POOL_DIR="/etc/php/${CURRENT_PHP_VER}/fpm/pool.d"
+[ ! -d "$FPM_POOL_DIR" ] && [ -d "/etc/php5/fpm/pool.d" ] && FPM_POOL_DIR="/etc/php5/fpm/pool.d"
+if [ -d "$FPM_POOL_DIR" ]; then
   mkdir -p "${BACKUP_DIR}/fpm-pools"
-  cp -a "/etc/php/${CURRENT_PHP_VER}/fpm/pool.d/." "${BACKUP_DIR}/fpm-pools/"
-  echo "    - Folder FPM pool.d berhasil diamankan."
+  cp -a "$FPM_POOL_DIR/." "${BACKUP_DIR}/fpm-pools/"
+  echo "    - Folder FPM pool.d (${FPM_POOL_DIR}) berhasil diamankan."
 fi
 
 # 3.4 Backup berkas .ini tambahan (conf.d)
@@ -168,7 +177,7 @@ php -m | grep -vE "^\[" | sort -u > "${BACKUP_DIR}/02-php-modules-runtime.txt"
 
 if command -v dpkg >/dev/null 2>&1; then
   dpkg -l | grep -E "^ii  php[0-9.]*-" | awk '{print $2}' > "${BACKUP_DIR}/03-all-php-apt-packages.txt" || true
-  grep -E "^php${CURRENT_PHP_VER}-" "${BACKUP_DIR}/03-all-php-apt-packages.txt" | sed "s/php${CURRENT_PHP_VER}-//" > "${BACKUP_DIR}/01-installed-extensions.txt" || true
+  grep -E "^(php${CURRENT_PHP_VER}-|php5-)" "${BACKUP_DIR}/03-all-php-apt-packages.txt" | sed -E "s/^(php${CURRENT_PHP_VER}-|php5-)//" > "${BACKUP_DIR}/01-installed-extensions.txt" || true
 else
   touch "${BACKUP_DIR}/03-all-php-apt-packages.txt"
   touch "${BACKUP_DIR}/01-installed-extensions.txt"
@@ -197,7 +206,7 @@ EOF
 touch "${BACKUP_DIR}/06-nginx-affected-vhosts.txt"
 if [ "$HAS_NGINX" = true ] && [ -d "/etc/nginx" ]; then
   mkdir -p "${BACKUP_DIR}/nginx-backup"
-  grep -rEl "(php.*${CURRENT_PHP_VER}.*fpm\.sock|php${CURRENT_PHP_VER})" /etc/nginx/sites-available/ /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ /etc/nginx/snippets/ /etc/nginx/nginx.conf 2>/dev/null | sort -u > "${BACKUP_DIR}/06-nginx-affected-vhosts.txt" || true
+  grep -rEl "(php.*${CURRENT_PHP_VER}.*fpm\.sock|php5.*fpm\.sock|php${CURRENT_PHP_VER}|php5)" /etc/nginx/sites-available/ /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ /etc/nginx/snippets/ /etc/nginx/nginx.conf 2>/dev/null | sort -u > "${BACKUP_DIR}/06-nginx-affected-vhosts.txt" || true
   
   if [ -s "${BACKUP_DIR}/06-nginx-affected-vhosts.txt" ]; then
     while IFS= read -r conf_file; do
@@ -222,7 +231,7 @@ if [ "$HAS_APACHE" = true ] && [ -d "/etc/apache2" ]; then
     apachectl -M > "${BACKUP_DIR}/08-apache-modules-detected.txt" 2>&1 || true
   fi
 
-  grep -rEl "(php.*${CURRENT_PHP_VER}.*fpm\.sock|php${CURRENT_PHP_VER})" /etc/apache2/sites-available/ /etc/apache2/sites-enabled/ /etc/apache2/conf-available/ /etc/apache2/conf-enabled/ /etc/apache2/mods-enabled/ 2>/dev/null | sort -u > "${BACKUP_DIR}/07-apache-affected-vhosts.txt" || true
+  grep -rEl "(php.*${CURRENT_PHP_VER}.*fpm\.sock|php5.*fpm\.sock|php${CURRENT_PHP_VER}|php5)" /etc/apache2/sites-available/ /etc/apache2/sites-enabled/ /etc/apache2/conf-available/ /etc/apache2/conf-enabled/ /etc/apache2/mods-enabled/ 2>/dev/null | sort -u > "${BACKUP_DIR}/07-apache-affected-vhosts.txt" || true
   
   if [ -s "${BACKUP_DIR}/07-apache-affected-vhosts.txt" ]; then
     while IFS= read -r conf_file; do

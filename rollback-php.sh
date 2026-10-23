@@ -80,10 +80,12 @@ fi
 # ==========================================
 # 2. AKTIFKAN KEMBALI PHP-FPM ASAL
 # ==========================================
-if [ "${HAS_FPM:-false}" = true ] || systemctl list-unit-files | grep -q "php${SOURCE_PHP_VER}-fpm"; then
-  echo "[+] Mengaktifkan dan menyalakan kembali service php${SOURCE_PHP_VER}-fpm..."
+if [ "${HAS_FPM:-false}" = true ] || systemctl list-unit-files | grep -q "php${SOURCE_PHP_VER}-fpm" || systemctl list-unit-files | grep -q "php5-fpm"; then
+  echo "[+] Mengaktifkan dan menyalakan kembali service FPM asal..."
   systemctl enable "php${SOURCE_PHP_VER}-fpm" 2>/dev/null || true
   systemctl restart "php${SOURCE_PHP_VER}-fpm" 2>/dev/null || true
+  systemctl enable "php5-fpm" 2>/dev/null || true
+  systemctl restart "php5-fpm" 2>/dev/null || true
 fi
 
 # Matikan FPM yang sempat di-upgrade jika ada
@@ -124,12 +126,12 @@ if [ "${HAS_APACHE:-false}" = true ] && [ -d "/etc/apache2" ]; then
 
   if [ "${APACHE_MODE:-none}" = "mod_php" ]; then
     [ -n "$UPGRADED_PHP_VER" ] && a2dismod "php${UPGRADED_PHP_VER}" 2>/dev/null || true
-    a2enmod "php${SOURCE_PHP_VER}" 2>/dev/null || true
+    a2enmod "php${SOURCE_PHP_VER}" 2>/dev/null || a2enmod "php5" 2>/dev/null || true
   fi
 
   if [ -d "/etc/apache2/conf-available" ]; then
     [ -n "$UPGRADED_PHP_VER" ] && a2disconf "php${UPGRADED_PHP_VER}-fpm" 2>/dev/null || true
-    a2enconf "php${SOURCE_PHP_VER}-fpm" 2>/dev/null || true
+    a2enconf "php${SOURCE_PHP_VER}-fpm" 2>/dev/null || a2enconf "php5-fpm" 2>/dev/null || true
   fi
 
   if [ -d "${BACKUP_DIR}/apache-backup" ]; then

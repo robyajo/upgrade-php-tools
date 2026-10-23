@@ -212,7 +212,7 @@ if [ -f "$MOD_FILE" ]; then
       continue
     fi
     case "$mod_lower" in
-      pdo_mysql|mysqli|mysqlnd) PKG="php${TARGET_FAMILY}-mysql" ;;
+      pdo_mysql|mysqli|mysqlnd|mysql) PKG="php${TARGET_FAMILY}-mysql" ;;
       pdo_pgsql|pgsql)         PKG="php${TARGET_FAMILY}-pgsql" ;;
       pdo_sqlite|sqlite3)      PKG="php${TARGET_FAMILY}-sqlite3" ;;
       simplexml|dom|xmlreader|xmlwriter) PKG="php${TARGET_FAMILY}-xml" ;;
@@ -398,6 +398,7 @@ if [ "${HAS_NGINX:-false}" = true ] || [ -d "/etc/nginx" ]; then
   for conf_file in "${UNIQUE_NGINX_FILES[@]:-}"; do
     if [ -f "$conf_file" ]; then
       sed -i -E "s|php${SOURCE_PHP_VER}-fpm\.sock|php${TARGET_FAMILY}-fpm.sock|g" "$conf_file"
+      sed -i -E "s|php5-fpm\.sock|php${TARGET_FAMILY}-fpm.sock|g" "$conf_file"
       echo "    - VHost / konfigurasi Nginx diperbarui (fastcgi_pass): ${conf_file}"
       UPDATED_COUNT=$((UPDATED_COUNT + 1))
     fi
@@ -424,12 +425,14 @@ if [ "${HAS_APACHE:-false}" = true ] || [ -d "/etc/apache2" ]; then
   echo "[+] Memeriksa dan memperbarui integrasi Apache2..."
 
   if [ "${APACHE_MODE:-none}" = "mod_php" ]; then
-    echo "    - Beralih dari mod_php${SOURCE_PHP_VER} ke mod_php${TARGET_FAMILY}..."
+    echo "    - Beralih dari mod_php lama ke mod_php${TARGET_FAMILY}..."
+    a2dismod "php5" 2>/dev/null || true
     a2dismod "php${SOURCE_PHP_VER}" 2>/dev/null || true
     a2enmod "php${TARGET_FAMILY}" 2>/dev/null || true
   fi
 
   if [ -d "/etc/apache2/conf-available" ]; then
+    a2disconf "php5-fpm" 2>/dev/null || true
     a2disconf "php${SOURCE_PHP_VER}-fpm" 2>/dev/null || true
     a2enconf "php${TARGET_FAMILY}-fpm" 2>/dev/null || true
   fi
@@ -444,7 +447,7 @@ if [ "${HAS_APACHE:-false}" = true ] || [ -d "/etc/apache2" ]; then
 
   while IFS= read -r live_apache_file; do
     [ -f "$live_apache_file" ] && APACHE_FILES_RAW+=("$live_apache_file")
-  done < <(grep -rEl "php.*${SOURCE_PHP_VER}.*fpm\.sock" /etc/apache2/sites-available/ /etc/apache2/conf-available/ /etc/apache2/sites-enabled/ 2>/dev/null || true)
+  done < <(grep -rEl "(php.*${SOURCE_PHP_VER}.*fpm\.sock|php5.*fpm\.sock)" /etc/apache2/sites-available/ /etc/apache2/conf-available/ /etc/apache2/sites-enabled/ 2>/dev/null || true)
 
   UNIQUE_APACHE_FILES=()
   if [ ${#APACHE_FILES_RAW[@]} -gt 0 ]; then
@@ -456,6 +459,7 @@ if [ "${HAS_APACHE:-false}" = true ] || [ -d "/etc/apache2" ]; then
   for conf_file in "${UNIQUE_APACHE_FILES[@]:-}"; do
     if [ -f "$conf_file" ]; then
       sed -i -E "s|php${SOURCE_PHP_VER}-fpm\.sock|php${TARGET_FAMILY}-fpm.sock|g" "$conf_file"
+      sed -i -E "s|php5-fpm\.sock|php${TARGET_FAMILY}-fpm.sock|g" "$conf_file"
       echo "    - VHost / konfigurasi Apache2 diperbarui (SetHandler/proxy): ${conf_file}"
     fi
   done
@@ -495,13 +499,14 @@ if [ -d "/etc/php/${TARGET_FAMILY}/fpm" ] || [ "${HAS_FPM:-false}" = true ]; the
 fi
 
 # 2. Hentikan dan nonaktifkan service PHP lama agar menghemat RAM sistem
-if systemctl is-active --quiet "php${SOURCE_PHP_VER}-fpm" 2>/dev/null || systemctl is-enabled --quiet "php${SOURCE_PHP_VER}-fpm" 2>/dev/null; then
-  echo "    - Menghentikan dan menonaktifkan service php${SOURCE_PHP_VER}-fpm..."
-  systemctl stop "php${SOURCE_PHP_VER}-fpm" 2>/dev/null || true
-  systemctl disable "php${SOURCE_PHP_VER}-fpm" 2>/dev/null || true
-  echo "    [✓] Service php${SOURCE_PHP_VER}-fpm lama berhasil dimatikan & dinonaktifkan."
-  echo "    (Paket PHP ${SOURCE_PHP_VER} lama tetap tersimpan di sistem agar selalu siap untuk rollback jika dibutuhkan)."
-fi
+for old_svc in "php${SOURCE_PHP_VER}-fpm" "php5-fpm"; do
+  if systemctl is-active --quiet "$old_svc" 2>/dev/null || systemctl is-enabled --quiet "$old_svc" 2>/dev/null; then
+    echo "    - Menghentikan dan menonaktifkan service $old_svc..."
+    systemctl stop "$old_svc" 2>/dev/null || true
+    systemctl disable "$old_svc" 2>/dev/null || true
+    echo "    [✓] Service $old_svc lama berhasil dimatikan & dinonaktifkan."
+  fi
+done
 
 # ==========================================
 # 11. INFORMASI BACKGROUND WORKER / CRON
