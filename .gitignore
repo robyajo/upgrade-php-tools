@@ -1,0 +1,37 @@
+# ==============================================================================
+# PHP UPGRADE TOOLS - GIT IGNORE
+# ==============================================================================
+
+# Direktori hasil backup lokal di dalam project
+backups/
+php-backups/
+
+# Symlink pointer backup terbaru
+backup-latest
+latest
+
+# Arsip tarball terkompresi
+*.tar.gz
+*.tar
+*.zip
+
+# Berkas environment & metadata lokal
+*.env
+!.env.example
+
+# File sementara & sistem operasi
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+*.bak
+
+# Direktori editor / IDE
+.vscode/
+.idea/
