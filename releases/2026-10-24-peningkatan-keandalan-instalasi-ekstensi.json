@@ -5,12 +5,12 @@
     "name": "Skript Upgrade Php Tools"
   },
   "title": {
-    "id": "Peningkatan Keandalan Penyelarasan dan Pemasangan Modul PHP",
-    "en": "Improved Reliability of PHP Module Synchronization and Installation"
+    "id": "Otomasi Penyelarasan Web Server, Layanan PHP, dan Keandalan Modul",
+    "en": "Automated Web Server Synchronization, PHP Service Management, and Module Reliability"
   },
   "body": {
-    "id": "Memperkuat proses pembaruan sistem dengan memvalidasi ketersediaan paket modul secara cerdas sebelum pemasangan, mencegah kegagalan pada modul bawaan sistem, serta menyediakan mekanisme pemulihan otomatis jika terjadi hambatan pada paket tertentu.",
-    "en": "Strengthened the system upgrade workflow with intelligent package availability verification prior to installation, preventing issues with built-in modules, and providing automatic recovery mechanisms for package-specific hiccups."
+    "id": "Memperluas otomasi peningkatan sistem dengan pembaruan mandiri konfigurasi web server dan rujukan socket, validasi sintaks terintegrasi, restart layanan otomatis, penghentian service lama secara efisien, serta validasi ketersediaan modul.",
+    "en": "Expanded system upgrade automation with autonomous web server configuration and socket reference updates, integrated syntax validation, automatic service restarts, efficient legacy service termination, and module availability validation."
   },
   "items": [
     {
@@ -27,6 +27,16 @@
       "type": "improvement",
       "id": "Mekanisme pemasangan per modul sebagai cadangan andal jika pemasangan massal mengalami kendala paket tertentu.",
       "en": "Fallback individual module installation mechanism ensuring resilience if batch installation encounters issues."
+    },
+    {
+      "type": "improvement",
+      "id": "Pembaruan otomatis berkas konfigurasi situs server web (fastcgi_pass Nginx & proxy Apache2) disertai pengujian sintaks langsung dan restart layanan otomatis.",
+      "en": "Automatic updates to web server site configurations (Nginx fastcgi_pass & Apache2 proxy) with live syntax testing and automatic service restarts."
+    },
+    {
+      "type": "improvement",
+      "id": "Pengelolaan siklus layanan otomatis untuk mengaktifkan service PHP baru dan mematikan service versi lama guna menghemat konsumsi memori server.",
+      "en": "Automated service lifecycle management to enable the new PHP service and stop the legacy service to optimize server memory consumption."
     }
   ]
 }

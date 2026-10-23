@@ -106,9 +106,11 @@ if [ "${HAS_NGINX:-false}" = true ] && [ -d "/etc/nginx" ]; then
     find /etc/nginx/sites-available/ /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ -type f -exec sed -i -E "s|php${UPGRADED_PHP_VER}-fpm\.sock|php${SOURCE_PHP_VER}-fpm.sock|g" {} + 2>/dev/null || true
   fi
 
-  if nginx -t >/dev/null 2>&1; then
-    systemctl reload nginx
-    echo "[+] Nginx berhasil divalidasi dan di-reload."
+  echo "[+] Memvalidasi sintaks Nginx (sudo nginx -t)..."
+  if nginx -t; then
+    echo "[+] Me-restart layanan Nginx (sudo systemctl restart nginx)..."
+    systemctl restart nginx
+    echo "[✓] Nginx berhasil divalidasi dan di-restart."
   else
     echo "[-] [PERINGATAN] Validasi Nginx gagal! Periksa sintaks dengan 'nginx -t'."
   fi
@@ -135,12 +137,18 @@ if [ "${HAS_APACHE:-false}" = true ] && [ -d "/etc/apache2" ]; then
     echo "    - Berkas VHost Apache2 dipulihkan dari arsip backup."
   fi
 
-  if command -v apache2ctl >/dev/null 2>&1 && apache2ctl configtest >/dev/null 2>&1; then
-    systemctl reload apache2
-    echo "[+] Apache2 berhasil divalidasi dan di-reload."
-  elif command -v apachectl >/dev/null 2>&1 && apachectl configtest >/dev/null 2>&1; then
-    systemctl reload apache2 2>/dev/null || systemctl reload httpd 2>/dev/null || true
-    echo "[+] Apache berhasil divalidasi dan di-reload."
+  if command -v apache2ctl >/dev/null 2>&1; then
+    echo "[+] Memvalidasi sintaks Apache2 (apache2ctl configtest)..."
+    if apache2ctl configtest; then
+      systemctl restart apache2
+      echo "[✓] Apache2 berhasil divalidasi dan di-restart."
+    fi
+  elif command -v apachectl >/dev/null 2>&1; then
+    echo "[+] Memvalidasi sintaks Apache (apachectl configtest)..."
+    if apachectl configtest; then
+      systemctl restart apache2 2>/dev/null || systemctl restart httpd 2>/dev/null || true
+      echo "[✓] Apache berhasil divalidasi dan di-restart."
+    fi
   fi
 fi
 

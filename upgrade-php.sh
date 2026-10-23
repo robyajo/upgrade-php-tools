@@ -328,21 +328,49 @@ fi
 # ==========================================
 # 8. PERBARUI KONFIGURASI NGINX (AMAN MULTI-PHP)
 # ==========================================
-NGINX_LIST="${BACKUP_DIR}/06-nginx-affected-vhosts.txt"
-[ ! -f "$NGINX_LIST" ] && NGINX_LIST="${BACKUP_DIR}/nginx-affected-vhosts.txt"
+if [ "${HAS_NGINX:-false}" = true ] || [ -d "/etc/nginx" ]; then
+  echo "[+] Memeriksa dan memperbarui konfigurasi Nginx (sites-available, sites-enabled, conf.d)..."
+  
+  NGINX_FILES_RAW=()
+  NGINX_LIST="${BACKUP_DIR}/06-nginx-affected-vhosts.txt"
+  [ ! -f "$NGINX_LIST" ] && NGINX_LIST="${BACKUP_DIR}/nginx-affected-vhosts.txt"
+  if [ -f "$NGINX_LIST" ]; then
+    while IFS= read -r conf_file; do
+      [ -f "$conf_file" ] && NGINX_FILES_RAW+=("$conf_file")
+    done < "$NGINX_LIST"
+  fi
 
-if [ -f "$NGINX_LIST" ] && [ -s "$NGINX_LIST" ]; then
-  echo "[+] Memperbarui konfigurasi Nginx..."
-  while IFS= read -r conf_file; do
+  # Pindai langsung direktori sites-available, sites-enabled, conf.d untuk fastcgi_pass socket lama
+  while IFS= read -r live_file; do
+    [ -f "$live_file" ] && NGINX_FILES_RAW+=("$live_file")
+  done < <(grep -rEl "php.*${SOURCE_PHP_VER}.*fpm\.sock" /etc/nginx/sites-available/ /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ 2>/dev/null || true)
+
+  # Ambil daftar unik berkas konfigurasi
+  UNIQUE_NGINX_FILES=()
+  if [ ${#NGINX_FILES_RAW[@]} -gt 0 ]; then
+    while IFS= read -r f; do
+      [ -n "$f" ] && UNIQUE_NGINX_FILES+=("$f")
+    done < <(printf "%s\n" "${NGINX_FILES_RAW[@]}" | sort -u)
+  fi
+
+  UPDATED_COUNT=0
+  for conf_file in "${UNIQUE_NGINX_FILES[@]:-}"; do
     if [ -f "$conf_file" ]; then
       sed -i -E "s|php${SOURCE_PHP_VER}-fpm\.sock|php${TARGET_FAMILY}-fpm.sock|g" "$conf_file"
-      echo "    - VHost Nginx diperbarui: ${conf_file}"
+      echo "    - VHost / konfigurasi Nginx diperbarui (fastcgi_pass): ${conf_file}"
+      UPDATED_COUNT=$((UPDATED_COUNT + 1))
     fi
-  done < "$NGINX_LIST"
+  done
 
-  if nginx -t >/dev/null 2>&1; then
-    systemctl reload nginx
-    echo "[+] Nginx berhasil divalidasi dan di-reload."
+  if [ "$UPDATED_COUNT" -eq 0 ]; then
+    echo "    - Tidak ada berkas VHost yang memerlukan penggantian socket php${SOURCE_PHP_VER}-fpm.sock."
+  fi
+
+  echo "[+] Menjalankan validasi sintaks Nginx (sudo nginx -t)..."
+  if nginx -t; then
+    echo "[+] Me-restart layanan Nginx (sudo systemctl restart nginx)..."
+    systemctl restart nginx
+    echo "[✓] Nginx berhasil divalidasi dan di-restart dengan socket php${TARGET_FAMILY}-fpm."
   else
     echo "[-] [PERINGATAN] Validasi Nginx gagal! Periksa sintaks dengan 'nginx -t'."
   fi
@@ -351,8 +379,8 @@ fi
 # ==========================================
 # 9. PERBARUI KONFIGURASI APACHE2
 # ==========================================
-if [ "${HAS_APACHE:-false}" = true ]; then
-  echo "[+] Memperbarui integrasi Apache2..."
+if [ "${HAS_APACHE:-false}" = true ] || [ -d "/etc/apache2" ]; then
+  echo "[+] Memeriksa dan memperbarui integrasi Apache2..."
 
   if [ "${APACHE_MODE:-none}" = "mod_php" ]; then
     echo "    - Beralih dari mod_php${SOURCE_PHP_VER} ke mod_php${TARGET_FAMILY}..."
@@ -365,41 +393,73 @@ if [ "${HAS_APACHE:-false}" = true ]; then
     a2enconf "php${TARGET_FAMILY}-fpm" 2>/dev/null || true
   fi
 
+  APACHE_FILES_RAW=()
   APACHE_LIST="${BACKUP_DIR}/07-apache-affected-vhosts.txt"
   if [ -f "$APACHE_LIST" ] && [ -s "$APACHE_LIST" ]; then
     while IFS= read -r conf_file; do
-      if [ -f "$conf_file" ]; then
-        sed -i -E "s|php${SOURCE_PHP_VER}-fpm\.sock|php${TARGET_FAMILY}-fpm.sock|g" "$conf_file"
-        echo "    - VHost Apache diperbarui: ${conf_file}"
-      fi
+      [ -f "$conf_file" ] && APACHE_FILES_RAW+=("$conf_file")
     done < "$APACHE_LIST"
   fi
 
-  if command -v apache2ctl >/dev/null 2>&1 && apache2ctl configtest >/dev/null 2>&1; then
-    systemctl reload apache2
-    echo "[+] Apache2 berhasil divalidasi dan di-reload."
-  elif command -v apachectl >/dev/null 2>&1 && apachectl configtest >/dev/null 2>&1; then
-    systemctl reload apache2 2>/dev/null || systemctl reload httpd 2>/dev/null || true
-    echo "[+] Apache berhasil divalidasi dan di-reload."
-  else
-    echo "[-] [PERINGATAN] Validasi konfigurasi Apache gagal! Periksa dengan 'apache2ctl configtest'."
+  while IFS= read -r live_apache_file; do
+    [ -f "$live_apache_file" ] && APACHE_FILES_RAW+=("$live_apache_file")
+  done < <(grep -rEl "php.*${SOURCE_PHP_VER}.*fpm\.sock" /etc/apache2/sites-available/ /etc/apache2/conf-available/ /etc/apache2/sites-enabled/ 2>/dev/null || true)
+
+  UNIQUE_APACHE_FILES=()
+  if [ ${#APACHE_FILES_RAW[@]} -gt 0 ]; then
+    while IFS= read -r f; do
+      [ -n "$f" ] && UNIQUE_APACHE_FILES+=("$f")
+    done < <(printf "%s\n" "${APACHE_FILES_RAW[@]}" | sort -u)
+  fi
+
+  for conf_file in "${UNIQUE_APACHE_FILES[@]:-}"; do
+    if [ -f "$conf_file" ]; then
+      sed -i -E "s|php${SOURCE_PHP_VER}-fpm\.sock|php${TARGET_FAMILY}-fpm.sock|g" "$conf_file"
+      echo "    - VHost / konfigurasi Apache2 diperbarui (SetHandler/proxy): ${conf_file}"
+    fi
+  done
+
+  if command -v apache2ctl >/dev/null 2>&1; then
+    echo "[+] Menjalankan validasi sintaks Apache2 (apache2ctl configtest)..."
+    if apache2ctl configtest; then
+      echo "[+] Me-restart layanan Apache2 (systemctl restart apache2)..."
+      systemctl restart apache2
+      echo "[✓] Apache2 berhasil divalidasi dan di-restart."
+    else
+      echo "[-] [PERINGATAN] Validasi konfigurasi Apache2 gagal!"
+    fi
+  elif command -v apachectl >/dev/null 2>&1; then
+    echo "[+] Menjalankan validasi sintaks Apache (apachectl configtest)..."
+    if apachectl configtest; then
+      echo "[+] Me-restart layanan Apache..."
+      systemctl restart apache2 2>/dev/null || systemctl restart httpd 2>/dev/null || true
+      echo "[✓] Apache berhasil divalidasi dan di-restart."
+    else
+      echo "[-] [PERINGATAN] Validasi konfigurasi Apache gagal!"
+    fi
   fi
 fi
 
 # ==========================================
-# 10. PENGELOLAAN SERVICE PHP LAMA
+# 10. PENGELOLAAN SERVICE PHP (MATIKAN LAMA & PASTIKAN AKTIF BARU)
 # ==========================================
-if systemctl is-active --quiet "php${SOURCE_PHP_VER}-fpm" 2>/dev/null; then
-  echo "--------------------------------------------------"
-  echo "Service PHP-FPM versi lama (php${SOURCE_PHP_VER}-fpm) saat ini masih berjalan."
-  echo "Paket lama TETAP DISIMPAN di sistem agar Anda selalu dapat melakukan rollback."
-  read -rp "Apakah Anda ingin menghentikan & menonaktifkan php${SOURCE_PHP_VER}-fpm untuk menghemat RAM? [Y/n]: " STOP_OLD
-  STOP_OLD=${STOP_OLD:-Y}
-  if [[ "$STOP_OLD" =~ ^[Yy]$ ]]; then
-    systemctl stop "php${SOURCE_PHP_VER}-fpm"
-    systemctl disable "php${SOURCE_PHP_VER}-fpm"
-    echo "[+] php${SOURCE_PHP_VER}-fpm telah dihentikan dan dinonaktifkan."
-  fi
+echo "[+] Menyelaraskan status layanan PHP (PHP-FPM)..."
+
+# 1. Pastikan service PHP baru terpasang, diaktifkan di boot, dan berjalan
+if [ -d "/etc/php/${TARGET_FAMILY}/fpm" ] || [ "${HAS_FPM:-false}" = true ]; then
+  echo "    - Mengaktifkan dan menyalakan service php${TARGET_FAMILY}-fpm..."
+  systemctl enable "php${TARGET_FAMILY}-fpm" 2>/dev/null || true
+  systemctl restart "php${TARGET_FAMILY}-fpm"
+  echo "    [✓] Service php${TARGET_FAMILY}-fpm aktif dan berjalan."
+fi
+
+# 2. Hentikan dan nonaktifkan service PHP lama agar menghemat RAM sistem
+if systemctl is-active --quiet "php${SOURCE_PHP_VER}-fpm" 2>/dev/null || systemctl is-enabled --quiet "php${SOURCE_PHP_VER}-fpm" 2>/dev/null; then
+  echo "    - Menghentikan dan menonaktifkan service php${SOURCE_PHP_VER}-fpm..."
+  systemctl stop "php${SOURCE_PHP_VER}-fpm" 2>/dev/null || true
+  systemctl disable "php${SOURCE_PHP_VER}-fpm" 2>/dev/null || true
+  echo "    [✓] Service php${SOURCE_PHP_VER}-fpm lama berhasil dimatikan & dinonaktifkan."
+  echo "    (Paket PHP ${SOURCE_PHP_VER} lama tetap tersimpan di sistem agar selalu siap untuk rollback jika dibutuhkan)."
 fi
 
 # ==========================================
