@@ -71,10 +71,28 @@ Selain folder di atas, skrip juga otomatis membuat arsip terkompresi `.tar.gz` d
 
 ### 1. Berikan Hak Eksekusi
 ```bash
-chmod +x backup-php.sh upgrade-php.sh rollback-php.sh
+chmod +x backup-php.sh upgrade-php.sh rollback-php.sh instan.sh
 ```
 
-### 2. Langkah 1: Backup Runtime Saat Ini
+---
+
+### ⚡ Opsi Cepat: Otomasi Instan 1-Langkah (`instan.sh`)
+Jika Anda tidak ingin menjalankan backup dan upgrade secara terpisah:
+```bash
+sudo ./instan.sh
+# atau tentukan versi langsung:
+sudo ./instan.sh 8.5
+```
+*Skrip ini akan secara otomatis:*
+1. Mencadangkan sistem saat ini (`backup-php.sh`).
+2. Menjalankan peningkatan ke versi target (`upgrade-php.sh`).
+3. **Mode Pelengkapan Cerdas**: Jika PHP versi target sudah pernah terpasang, skrip tidak akan mengulang proses dari awal, melainkan hanya melengkapi modul/konfigurasi yang kurang, menyegarkan layanan web server/PHP, dan menampilkan konfirmasi bahwa versi tersebut siap digunakan.
+
+---
+
+### 2. Opsi Bertahap (Langkah demi Langkah)
+
+#### Langkah 1: Backup Runtime Saat Ini
 Jalankan skrip backup dengan hak akses `sudo`:
 ```bash
 sudo ./backup-php.sh
@@ -87,23 +105,23 @@ cat backups/latest/00-RINGKASAN-SISTEM.txt
 cat backups/latest/10-php-ini-key-values.txt
 ```
 
----
-
-### 3. Langkah 2: Upgrade ke Versi Target
+#### Langkah 2: Upgrade ke Versi Target
 Jalankan skrip upgrade:
 ```bash
 sudo ./upgrade-php.sh
+# atau langsung:
+sudo ./upgrade-php.sh 8.5
 ```
 *Alur kerja skrip:*
 1. Membaca metadata cadangan dari `./backups/latest` secara otomatis.
-2. Meminta input versi target (misal: `8.3` atau `8.4`).
+2. Meminta input versi target (atau dari argumen baris perintah).
 3. Menyiapkan repositori PPA Ondřej Surý (Ubuntu) atau Sury Debian.
 4. Memasang PHP CLI, FPM, atau Apache module sesuai web server yang Anda gunakan.
-5. Memasang seluruh modul/ekstensi yang sebelumnya aktif secara serentak.
+5. Memasang seluruh modul/ekstensi yang sebelumnya aktif secara cerdas (hanya yang belum terpasang).
 6. Menyinkronkan nilai `php.ini` (CLI dari CLI, FPM dari FPM, Apache dari Apache).
 7. Memigrasikan tuning `pm.max_children` di FPM `pool.d/www.conf`.
-8. Memperbarui socket di Nginx dan/atau Apache2 dengan pengujian sintaks (`nginx -t` & `apache2ctl configtest`).
-9. Menanyakan apakah service lama ingin dihentikan untuk menghemat RAM (paket lama tetap disimpan untuk keamanan).
+8. Memperbarui socket di Nginx (`fastcgi_pass`) dan/atau Apache2 dengan pengujian sintaks langsung (`nginx -t` & `apache2ctl configtest`), lalu me-restart layanan.
+9. Mematikan service PHP lama untuk menghemat RAM dan memastikan service PHP baru aktif.
 
 ---
 
