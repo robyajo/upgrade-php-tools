@@ -136,17 +136,35 @@ apt-get install -y --no-install-recommends "${CORE_PACKAGES[@]}"
 echo "[+] Menyelaraskan daftar ekstensi dengan versi sebelumnya..."
 PACKAGES_TO_INSTALL=()
 
+# Helper untuk memverifikasi apakah kandidat instalasi paket benar-benar tersedia (bukan virtual package)
+is_package_installable() {
+  local pkg="$1"
+  if [[ ! "$pkg" =~ ^[a-z0-9.+-]+$ ]]; then
+    return 1
+  fi
+  local candidate
+  candidate=$(apt-cache policy "$pkg" 2>/dev/null | awk '/Candidate:/ {print $2}')
+  if [ -n "$candidate" ] && [ "$candidate" != "(none)" ]; then
+    return 0
+  fi
+  return 1
+}
+
+# Modul core/built-in PHP yang tidak memiliki paket terpisah pada PHP 8+
+CORE_MODULES_REGEX="^(common|cli|fpm|opcache|readline|json|core|date|pcre|zlib|filter|hash|reflection|spl|standard|session|tokenizer|openssl|phar|posix|shmop|sockets|sysvmsg|sysvsem|sysvshm|ctype|libxml|iconv|zend.*|\[.*)$"
+
 EXT_FILE="${BACKUP_DIR}/01-installed-extensions.txt"
 [ ! -f "$EXT_FILE" ] && EXT_FILE="${BACKUP_DIR}/installed-extensions.txt"
 
 if [ -f "$EXT_FILE" ]; then
   while IFS= read -r ext; do
     [ -z "$ext" ] && continue
-    if [[ "$ext" =~ ^(common|cli|fpm|opcache|readline|php.*)$ ]]; then
+    ext_lower=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
+    if [[ "$ext_lower" =~ $CORE_MODULES_REGEX ]]; then
       continue
     fi
-    PKG="php${TARGET_FAMILY}-${ext}"
-    if apt-cache show "$PKG" >/dev/null 2>&1; then
+    PKG="php${TARGET_FAMILY}-${ext_lower}"
+    if is_package_installable "$PKG"; then
       PACKAGES_TO_INSTALL+=("$PKG")
     fi
   done < "$EXT_FILE"
@@ -159,6 +177,9 @@ if [ -f "$MOD_FILE" ]; then
   while IFS= read -r mod; do
     [ -z "$mod" ] && continue
     mod_lower=$(echo "$mod" | tr '[:upper:]' '[:lower:]')
+    if [[ "$mod_lower" =~ $CORE_MODULES_REGEX ]]; then
+      continue
+    fi
     case "$mod_lower" in
       pdo_mysql|mysqli|mysqlnd) PKG="php${TARGET_FAMILY}-mysql" ;;
       pdo_pgsql|pgsql)         PKG="php${TARGET_FAMILY}-pgsql" ;;
@@ -167,7 +188,7 @@ if [ -f "$MOD_FILE" ]; then
       *)                        PKG="php${TARGET_FAMILY}-${mod_lower}" ;;
     esac
 
-    if apt-cache show "$PKG" >/dev/null 2>&1; then
+    if is_package_installable "$PKG"; then
       if [[ ! " ${PACKAGES_TO_INSTALL[*]:-} " =~ " ${PKG} " ]]; then
         PACKAGES_TO_INSTALL+=("$PKG")
       fi
@@ -175,10 +196,10 @@ if [ -f "$MOD_FILE" ]; then
   done < "$MOD_FILE"
 fi
 
-CORE_DEFAULTS=("curl" "mbstring" "xml" "zip" "bcmath" "intl" "opcache")
+CORE_DEFAULTS=("curl" "mbstring" "xml" "zip" "bcmath" "intl")
 for def in "${CORE_DEFAULTS[@]}"; do
   PKG="php${TARGET_FAMILY}-${def}"
-  if apt-cache show "$PKG" >/dev/null 2>&1; then
+  if is_package_installable "$PKG"; then
     if [[ ! " ${PACKAGES_TO_INSTALL[*]:-} " =~ " ${PKG} " ]]; then
       PACKAGES_TO_INSTALL+=("$PKG")
     fi
@@ -187,7 +208,12 @@ done
 
 if [ ${#PACKAGES_TO_INSTALL[@]} -gt 0 ]; then
   echo "[+] Memasang ekstensi: ${PACKAGES_TO_INSTALL[*]}"
-  apt-get install -y "${PACKAGES_TO_INSTALL[@]}"
+  if ! apt-get install -y "${PACKAGES_TO_INSTALL[@]}"; then
+    echo "[!] Sebagian paket ekstensi mengalami kendala instalasi massal, memasang modul valid satu per satu..."
+    for pkg in "${PACKAGES_TO_INSTALL[@]}"; do
+      apt-get install -y "$pkg" || echo "[-] Gagal memasang $pkg (dilewati)"
+    done
+  fi
 fi
 
 # ==========================================

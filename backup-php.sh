@@ -164,7 +164,7 @@ fi
 echo "[+] Menghasilkan file-file ringkasan teks (.txt)..."
 
 # 4.1 Ekstrak Modul Runtime & APT
-php -m | sort -u > "${BACKUP_DIR}/02-php-modules-runtime.txt"
+php -m | grep -vE "^\[" | sort -u > "${BACKUP_DIR}/02-php-modules-runtime.txt"
 
 if command -v dpkg >/dev/null 2>&1; then
   dpkg -l | grep -E "^ii  php[0-9.]*-" | awk '{print $2}' > "${BACKUP_DIR}/03-all-php-apt-packages.txt" || true
